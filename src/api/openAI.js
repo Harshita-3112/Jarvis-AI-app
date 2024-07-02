@@ -3,7 +3,7 @@ import { apiKey } from '../constants'
 
 const client = axios.create({
     headers: {
-        "Authorization": 'Bearer sk-proj-AsyPWtRBItWtdJoFdrhPT3BlbkFJ2C8z3J55QhxS1939WGzF',
+        "Authorization": 'Bearer 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',
         "Content-Type": 'application/json'
     }
 })
@@ -33,7 +33,7 @@ export const apiCall = async (prompt, messages) => {
             return chatgptApiCall(prompt, messages || [])
         }
     } catch (error) {
-        console.log('error here', error);
+        console.log('error here', error, error.response);
         return Promise.resolve({ success: false, msg: error.message })
     }
 }

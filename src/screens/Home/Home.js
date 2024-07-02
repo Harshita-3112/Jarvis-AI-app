@@ -1,4 +1,5 @@
 import {
+  Animated,
   Image,
   SafeAreaView,
   ScrollView,
@@ -7,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { scale } from 'react-native-size-matters';
 import {
   BORDERRADIUS,
@@ -19,114 +20,131 @@ import {
 import Feature from '../../components/Feature.js';
 import { dummyMessages } from '../../constants/index.js';
 import Voice from '@react-native-community/voice';
-import { apiCall, chatGenerater, voiceGenerater } from '../../api/openAI.js';
+import { apiCall } from '../../api/openAI.js';
+import LottieView from 'lottie-react-native';
+import Tts from 'react-native-tts';
 
 const Home = () => {
   const [messages, setMessages] = useState(dummyMessages);
   const [recording, setRecording] = useState(false);
-  const [speaking, setSpeaking] = useState(true);
+  const [speaking, setSpeaking] = useState(false);
   const [result, setResult] = useState('');
-
-
+  const [loading, setLoading] = useState(false);
+  const ScrollViewRef = useRef();
 
   const speechStartHandler = e => {
     console.log('speech start handler');
+  };
 
-  }
   const speechEndHandler = e => {
-    setRecording(false)
-
+    setRecording(false);
     console.log('speech end handler');
-  }
+  };
+
   const speechResultsHandler = e => {
     console.log(' e', e);
     const text = e.value[0];
     setResult(text);
-    fetchResponse(text)
-  }
+    fetchResponse(text);
+  };
+
   const speechErrorHandler = e => {
-
     console.log('speech error handler', e);
-  }
-
-  // start recording function
+  };
 
   const startRecording = async () => {
-
-    setRecording(true)
+    setRecording(true);
+    Tts.stop();
     try {
-      await Voice.start('en-GB'); // en-US
+      await Voice.start('en-GB');
     } catch (error) {
       console.log('error here', error);
     }
-  }
-
-
-  // stop recording function
+  };
 
   const stopRecording = async () => {
-    console.log('called');
     try {
       await Voice.stop();
-      setRecording(false)
-      //fetch response
-      fetchResponse()
+      setRecording(false);
     } catch (error) {
       console.log('error here', error);
     }
-  }
+  };
 
-  const fetchResponse = (text) => {
-    console.log('1', text);
+  const fetchResponse = async (text) => {
     if (text?.trim().length > 0) {
-      console.log('2');
-
-      let newMessages = [...messages]
-      messages.push({ role: 'user', content: text.trim() })
-      setMessages([...newMessages])
-
-      apiCall(text.trim(), messages).then(res => {
-        // let latestData = [...newMessages]
-        // console.log("latest Data", latestData);
-        // messages.push({ role: "user", content: text.trim() })
-        // setMessages([...latestData])
-        console.log('got api data', res.data);
-
-      }).catch((e) => {
+      const newMessages = [...messages, { role: 'user', content: text.trim() }];
+      setMessages(newMessages);
+      updateScrollView();
+      setLoading(true);
+      try {
+        const res = await apiCall(text.trim(), newMessages);
+        setMessages([...newMessages, ...res.data]);
+        updateScrollView();
+        setLoading(false);
+        startTextToSpeech(res.data[res.data.length - 1]);
+      } catch (e) {
         console.log('e', e);
-      })
-
-
+        setLoading(false);
+      }
     }
-  }
+  };
 
+  const startTextToSpeech = message => {
+    if (!message.content?.includes('https')) {
+      setSpeaking(true);
+      Tts.speak(message.content, {
+        androidParams: {
+          KEY_PARAM_PAN: -1,
+          KEY_PARAM_VOLUME: 0.5,
+          KEY_PARAM_STREAM: 'STREAM_MUSIC',
+        },
+      });
+    }
+  };
 
+  const updateScrollView = () => {
+    setTimeout(() => {
+      ScrollViewRef?.current?.scrollToEnd({ animated: true });
+    }, 200);
+  };
 
   const handleClear = () => {
-    setMessages([])
-  }
+    setMessages([]);
+    Tts.stop();
+    setSpeaking(false);
+  };
+
   const stopSpeaking = () => {
-    setSpeaking(false)
-  }
+    Tts.stop();
+    setSpeaking(false);
+  };
 
   useEffect(() => {
-    // voice handler events
     Voice.onSpeechStart = speechStartHandler;
     Voice.onSpeechEnd = speechEndHandler;
     Voice.onSpeechResults = speechResultsHandler;
     Voice.onSpeechError = speechErrorHandler;
 
+    Tts.addEventListener('tts-start', (event) => console.log("start", event));
+    Tts.addEventListener('tts-progress', (event) => console.log("progress", event));
+    Tts.addEventListener('tts-finish', (event) => {
+      console.log("finish", event);
+      setSpeaking(false);
+    });
+    Tts.addEventListener('tts-cancel', (event) => {
+      console.log("cancel", event);
+      setSpeaking(false);
+    });
+
     return () => {
-      Voice.destroy().then(Voice.removeAllListeners)
-    }
-
-  }, [])
-
-
-
-
-
-
+      Voice.destroy().then(Voice.removeAllListeners);
+      Tts.removeAllListeners('tts-start');
+      Tts.removeAllListeners('tts-progress');
+      Tts.removeAllListeners('tts-finish');
+      Tts.removeAllListeners('tts-cancel');
+    };
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -144,14 +162,13 @@ const Home = () => {
         />
 
         {/* features || messages */}
-
         {messages.length > 0 ? (
           <View style={styles.messageContainer}>
             <Text style={styles.assistant}>Assistant</Text>
             <View style={styles.box}>
-              <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+              <ScrollView ref={ScrollViewRef} bounces={false} showsVerticalScrollIndicator={false}>
                 {messages.map((item, index) => {
-                  if (item.role == 'assistant') {
+                  if (item.role === 'assistant') {
                     if (item.content?.includes('https')) {
                       // AI image
                       return (
@@ -159,9 +176,8 @@ const Home = () => {
                           <View style={{ padding: 2, borderRadius: BORDERRADIUS.radius_15, backgroundColor: COLORS.emeraldgreen, borderTopLeftRadius: 0 }}>
                             <Image source={{ uri: item.content }} style={{ resizeMode: 'cover', height: 160, width: 160, borderRadius: BORDERRADIUS.radius_10 }} />
                           </View>
-
                         </View>
-                      )
+                      );
                     } else {
                       // text response
                       return (
@@ -173,7 +189,6 @@ const Home = () => {
                             borderRadius: BORDERRADIUS.radius_4 + 2,
                             borderTopLeftRadius: 0,
                             padding: SPACING.space_4 + 2,
-                            // marginTop: scale(12)
                           }}>
                           <Text>{item.content}</Text>
                         </View>
@@ -211,55 +226,34 @@ const Home = () => {
         )}
       </View>
 
-
       {/* recording, clear and stop buttons */}
-
-
       <View style={{ justifyContent: 'center', alignItems: 'center', flex: 1 }}>
+        {loading ? (
+          <LottieView source={require('../../assets/icons/lottie.json')} autoPlay loop />
+        ) : recording ? (
+          <TouchableOpacity onPress={stopRecording}>
+            {/* recording stop button */}
+            <Image source={require('../../assets/images/image.png')} style={{ height: scale(60), width: scale(60), borderRadius: BORDERRADIUS.radius_25 + 5 }} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={startRecording}>
+            {/* recording start button */}
+            <Image source={require('../../assets/icons/mic.jpg')} style={{ height: scale(60), width: scale(60), borderRadius: BORDERRADIUS.radius_25 + 5 }} />
+          </TouchableOpacity>
+        )}
 
+        {messages.length > 0 && (
+          <TouchableOpacity onPress={handleClear} style={{ backgroundColor: '#a3a3a3', padding: 4, position: "absolute", borderRadius: BORDERRADIUS.radius_15, right: 10 }} >
+            <Text style={{ fontFamily: FONTFAMILY.poppins_semibold, color: COLORS.whiteRGBA75, fontSize: FONTSIZE.size_12 }} >Clear</Text>
+          </TouchableOpacity>
+        )}
 
-        {
-          recording ? (
-            <TouchableOpacity onPress={stopRecording}>
-
-              {/* recording stop button */}
-
-              <Image source={require('../../assets/images/image.png')} style={{ height: scale(60), width: scale(60), borderRadius: BORDERRADIUS.radius_25 + 5 }} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity onPress={startRecording}>
-
-              {/* recording start button */}
-
-              <Image source={require('../../assets/icons/mic.jpg')} style={{ height: scale(60), width: scale(60), borderRadius: BORDERRADIUS.radius_25 + 5 }} />
-            </TouchableOpacity>
-          )
-        }
-
-
-
-
-
-        {
-          messages.length > 0 && (
-            <TouchableOpacity onPress={handleClear} style={{ backgroundColor: '#a3a3a3', padding: 4, position: "absolute", borderRadius: BORDERRADIUS.radius_15, right: 10 }} >
-              <Text style={{ fontFamily: FONTFAMILY.poppins_semibold, color: COLORS.whiteRGBA75, fontSize: FONTSIZE.size_12 }} >Clear</Text>
-            </TouchableOpacity>
-          )
-        }
-
-        {
-          speaking && (
-            <TouchableOpacity onPress={stopSpeaking} style={{ backgroundColor: 'red', padding: 4, position: "absolute", borderRadius: BORDERRADIUS.radius_15, left: 10 }} >
-              <Text style={{ fontFamily: FONTFAMILY.poppins_semibold, color: COLORS.whiteRGBA75, fontSize: FONTSIZE.size_12 }} >Stop</Text>
-            </TouchableOpacity>
-          )
-        }
-
+        {speaking && (
+          <TouchableOpacity onPress={stopSpeaking} style={{ backgroundColor: 'red', padding: 4, position: "absolute", borderRadius: BORDERRADIUS.radius_15, left: 10 }} >
+            <Text style={{ fontFamily: FONTFAMILY.poppins_semibold, color: COLORS.whiteRGBA75, fontSize: FONTSIZE.size_12 }} >Stop</Text>
+          </TouchableOpacity>
+        )}
       </View>
-
-
-
     </SafeAreaView>
   );
 };
@@ -270,7 +264,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: SPACING.space_16,
-    // backgroundColor: 'blue',
   },
   messageContainer: {
     flex: 1,
@@ -280,7 +273,6 @@ const styles = StyleSheet.create({
     fontSize: FONTSIZE.size_16,
     fontFamily: FONTFAMILY.poppins_medium,
     color: COLORS.grey,
-    // color: '#36454F',
   },
   box: {
     height: scale(360),
