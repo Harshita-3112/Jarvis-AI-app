@@ -229,11 +229,12 @@ const Home = () => {
       {/* recording, clear and stop buttons */}
       <View style={{ justifyContent: 'center', alignItems: 'center', flex: 1 }}>
         {loading ? (
-          <LottieView source={require('../../assets/icons/lottie.json')} autoPlay loop />
+          <LottieView source={require('../../assets/icons/Animation5.json')} autoPlay loop style={{ height: scale(90), width: scale(90) }} />
         ) : recording ? (
           <TouchableOpacity onPress={stopRecording}>
             {/* recording stop button */}
-            <Image source={require('../../assets/images/image.png')} style={{ height: scale(60), width: scale(60), borderRadius: BORDERRADIUS.radius_25 + 5 }} />
+            <LottieView source={require('../../assets/icons/recording.json')} autoPlay loop style={{ height: scale(70), width: scale(70) }} />
+
           </TouchableOpacity>
         ) : (
           <TouchableOpacity onPress={startRecording}>
@@ -270,7 +271,7 @@ const styles = StyleSheet.create({
     marginTop: scale(16),
   },
   assistant: {
-    fontSize: FONTSIZE.size_16,
+    fontSize: FONTSIZE.size_18,
     fontFamily: FONTFAMILY.poppins_medium,
     color: COLORS.grey,
   },

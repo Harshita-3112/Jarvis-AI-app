@@ -1,4 +1,4 @@
-import {Image, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import React from 'react';
 import {
   BORDERRADIUS,
@@ -7,8 +7,9 @@ import {
   FONTSIZE,
   SPACING,
 } from '../../theme/theme';
-import {scale} from 'react-native-size-matters';
-import {useNavigation} from '@react-navigation/native';
+import { scale } from 'react-native-size-matters';
+import { useNavigation } from '@react-navigation/native';
+import LottieView from 'lottie-react-native';
 
 const Welcome = () => {
   const navigation = useNavigation();
@@ -23,18 +24,11 @@ const Welcome = () => {
         <Text style={styles.text1}>Jarvis</Text>
         <Text style={styles.text2}>The Future is here,powered by AI.</Text>
       </View>
-      {/* put icon instead of image here */}
-      <Image
-        source={require('../../assets/images/photo5.jpeg')}
-        style={{
-          height: 150,
-          width: 'auto',
-          resizeMode: 'cover',
-          backgroundColor: 'green',
-          marginTop: scale(150),
-          borderRadius: scale(12),
-        }}
-      />
+
+
+      <View style={{ top: scale(50) }}>
+        <LottieView source={require('../../assets/icons/Animation3.json')} autoPlay loop style={{ height: scale(290), width: (290), alignSelf: 'center', }} />
+      </View>
 
       <TouchableOpacity style={styles.button} onPress={handleGetStartedButton}>
         <Text style={styles.buttonText}>Get Started</Text>
@@ -54,10 +48,11 @@ const styles = StyleSheet.create({
   text1: {
     color: COLORS.blackRGB10,
     fontFamily: FONTFAMILY.poppins_bold,
-    fontSize: FONTSIZE.size_24,
+    fontSize: FONTSIZE.size_30,
   },
   text2: {
     fontFamily: FONTFAMILY.poppins_medium,
+
   },
   container2: {
     alignItems: 'center',
